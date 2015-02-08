@@ -387,6 +387,9 @@ void msg_read_tiny(uint8_t *buf, int len)
 		case MessageType_MessageType_ButtonAck:
 			fields = ButtonAck_fields;
 			break;
+		case MessageType_MessageType_WordAck:
+			fields = WordAck_fields;
+			break;
 		case MessageType_MessageType_PassphraseAck:
 			fields = PassphraseAck_fields;
 			break;
