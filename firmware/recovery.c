@@ -26,42 +26,48 @@
 #include "messages.h"
 #include "rng.h"
 #include "bip39.h"
+#include "oled.h"
+#include "usb.h"
+#include "buttons.h"
+#include "util.h"
 
+#define MAXLETTER 4
+#define MAXCHOICES 10
+#define MAXDISPLAY 4
+
+static uint32_t askedletter[24*MAXLETTER/32];
+static unsigned int numletters;
+static unsigned int letter_pos;
 static uint32_t word_count;
 static bool awaiting_word = false;
 static bool enforce_wordlist;
-static char fake_word[12];
-static uint32_t word_pos;
-static uint32_t word_index;
-static char word_order[24];
-static char words[24][12];
+static char letters[24][MAXLETTER];
 
 void next_word(void) {
-	word_pos = word_order[word_index];
-	if (word_pos == 0) {
-		const char * const *wl = mnemonic_wordlist();
-		strlcpy(fake_word, wl[random_uniform(2048)], sizeof(fake_word));
-		layoutDialogSwipe(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter the word", NULL, fake_word, NULL, "on your computer", NULL);
-	} else {
-		fake_word[0] = 0;
-		char desc[] = "##th word";
-		if (word_pos < 10) {
-			desc[0] = ' ';
-		} else {
-			desc[0] = '0' + word_pos / 10;
-		}
-		desc[1] = '0' + word_pos % 10;
-		if (word_pos == 1 || word_pos == 21) {
-			desc[2] = 's'; desc[3] = 't';
-		} else
-		if (word_pos == 2 || word_pos == 22) {
-			desc[2] = 'n'; desc[3] = 'd';
-		} else
-		if (word_pos == 3 || word_pos == 23) {
-			desc[2] = 'r'; desc[3] = 'd';
-		}
-		layoutDialogSwipe(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter the", NULL, (word_pos < 10 ? desc + 1 : desc), NULL, "of your mnemonic", NULL);
+	char desc[] = "word ## letter #";
+	char pdesc[] = "progress ## %";
+	int rand = random_uniform(numletters);
+	letter_pos = 0;
+	while ((askedletter[letter_pos / 32] & (1<<(letter_pos & 31))) != 0)
+		letter_pos++;
+	while (rand > 0) {
+		letter_pos++;
+		while ((askedletter[letter_pos / 32] & (1<<(letter_pos & 31))) != 0)
+			letter_pos++;
+		rand--;
 	}
+	unsigned int progress = (word_count * MAXLETTER - numletters)*100/
+		(word_count * MAXLETTER);
+	pdesc[9] = '0'+(progress/10);
+	pdesc[10] = '0'+(progress%10);
+	numletters--;
+	askedletter[letter_pos / 32] |= (1<<(letter_pos & 31));
+
+	int word_pos = (letter_pos / MAXLETTER) + 1;
+	desc[5] = word_pos < 10 ? ' ' : ('0' + word_pos / 10);
+	desc[6] = '0' + (word_pos % 10);
+	desc[15] = '1' + (letter_pos % MAXLETTER);
+	layoutDialogSwipe(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, desc, "of your mnemonic", NULL, pdesc);
 	WordRequest resp;
 	memset(&resp, 0, sizeof(WordRequest));
 	msg_write(MessageType_MessageType_WordRequest, &resp);
@@ -89,17 +95,90 @@ void recovery_init(uint32_t _word_count, bool passphrase_protection, bool pin_pr
 	storage_setLanguage(language);
 	storage_setLabel(label);
 
-	uint32_t i;
-	for (i = 0; i < word_count; i++) {
-		word_order[i] = i + 1;
-	}
-	for (i = word_count; i < 24; i++) {
-		word_order[i] = 0;
-	}
-	random_permute(word_order, 24);
 	awaiting_word = true;
-	word_index = 0;
+	memset(askedletter, 0, sizeof(askedletter));
+	memset(&letters, 1, sizeof(letters));
+	numletters = word_count * MAXLETTER;
 	next_word();
+}
+
+void layout_choices(const char**choices, unsigned int choice, 
+					unsigned int numchoices) {
+	unsigned int i;
+	oledBox(20, 1*9+3, OLED_WIDTH-1, (MAXDISPLAY+1)*9+3-1, false);
+	if (numchoices <= MAXDISPLAY) {
+		for (i = 0; i < numchoices; i++) {
+			oledDrawString(20, (i+1)*9 + 3, choices[i]);
+			if (i == choice) {
+				oledInvert(20, (i+1)*9 + 3, OLED_WIDTH-1, (i+2)*9 + 3 -1);
+			}
+		}
+	} else {
+		for (i = 0; i < MAXDISPLAY; i++) {
+			oledDrawString(20, (i+1) * 9 + 3, choices[(choice+i) % numchoices]);
+		}
+		oledInvert(20, 1*9+3, OLED_WIDTH-1, 2*9+3-1);
+	}
+	oledRefresh();
+}
+
+static int check_word(const char *word, const char lttrs[MAXLETTER]) {
+	int i;
+	for (i = 0; i < MAXLETTER; i++) {
+		if (lttrs[i] != 1 && lttrs[i] != word[i])
+			return 0;
+	}
+	return 1;
+}
+
+const char* choose_word(unsigned int word_pos, 
+						const char**choices, unsigned int numchoices) {
+
+	char desc[] = "Choose ##th word";
+	word_pos++;
+	desc[7] = word_pos < 10 ? ' ' : ('0' + word_pos / 10);
+	desc[8] = '0' + (word_pos % 10);
+	if (word_pos == 1 || word_pos == 21)
+		memcpy(&desc[9], "st", 2);
+	else if (word_pos == 2 || word_pos == 22)
+		memcpy(&desc[9], "nd", 2);
+	else if (word_pos == 3 || word_pos == 23)
+		memcpy(&desc[9], "rd", 2);
+	
+	layoutDialogSwipe(DIALOG_ICON_QUESTION, "down", "okay", NULL, desc, NULL, NULL, NULL, NULL, NULL);
+	
+	unsigned int choice = 0;
+	layout_choices(choices, choice, numchoices);
+	for (;;) {
+		usbPoll();
+
+		buttonUpdate();
+		if (button.NoDown) {
+			choice = (choice + 1) % numchoices;
+			layout_choices(choices, choice, numchoices);
+			delay(10000000);
+		}
+		
+		if (button.YesUp) {
+			return choices[choice];
+		}
+		
+		if (msg_tiny_id == MessageType_MessageType_Cancel 
+			|| msg_tiny_id == MessageType_MessageType_Initialize) {
+			if (msg_tiny_id == MessageType_MessageType_Initialize) {
+				protectAbortedByInitialize = true;
+			}
+			msg_tiny_id = 0xFFFF;
+			return NULL;
+		}
+
+#if DEBUG_LINK
+		if (msg_tiny_id == MessageType_MessageType_DebugLinkGetState) {
+			msg_tiny_id = 0xFFFF;
+			fsm_msgDebugLinkGetState((DebugLinkGetState *)msg_tiny);
+		}
+#endif
+	}
 }
 
 void recovery_word(const char *word)
@@ -110,55 +189,80 @@ void recovery_word(const char *word)
 		return;
 	}
 
-	if (word_pos == 0) { // fake word
-		if (strcmp(word, fake_word) != 0) {
+	unsigned int word_pos = letter_pos / MAXLETTER;
+	letters[word_pos][letter_pos % MAXLETTER] = word[0];
+	
+	// check number of choices remaining
+	const char **wl = mnemonic_wordlist();
+	int numchoices = 0;
+	int i;
+	while (*wl) {
+		if (check_word(*wl, letters[word_pos])) {
+			numchoices++;
+			if (numchoices > MAXCHOICES) {
+				break;
+			}
+		}
+		wl++;
+	}
+
+	if (numchoices == 0) {
+		storage_reset();
+		fsm_sendFailure(FailureType_Failure_SyntaxError, "Wrong letter");
+		layoutHome();
+		return;
+	}
+
+	if (numchoices <= MAXCHOICES) {
+		/* word is unique enough. Don't ask for it again */
+		unsigned int pos = word_pos * MAXLETTER;
+		for (i = 0; i < MAXLETTER; i++) {
+			if ((askedletter[pos / 32] & (1 << (pos & 31))) == 0) {
+				numletters--;
+				askedletter[pos / 32] |= (1 << (pos & 31));
+			}
+			pos++;
+		}
+	}
+	
+	if (numletters > 0) {
+		next_word();
+		return;
+	}
+
+	// We are done with asking, now let the user choose the words.
+	const char* choices[MAXCHOICES];
+	usbTiny(1);
+	for (word_pos = 0; word_pos < word_count; word_pos++) {
+
+		wl = mnemonic_wordlist();
+		numchoices = 0;
+		while (*wl) {
+			if (check_word(*wl, letters[word_pos])) {
+				choices[numchoices++] = *wl;
+			}
+			wl++;
+		}
+
+		word = choose_word(word_pos, choices, numchoices);
+		if (word == NULL) {
 			storage_reset();
-			fsm_sendFailure(FailureType_Failure_SyntaxError, "Wrong word retyped");
 			layoutHome();
 			return;
 		}
-	} else { // real word
-		if (enforce_wordlist) { // check if word is valid
-			const char * const *wl = mnemonic_wordlist();
-			bool found = false;
-			while (*wl) {
-				if (strcmp(word, *wl) == 0) {
-					found = true;
-					break;
-				}
-				wl++;
-			}
-			if (!found) {
-				storage_reset();
-				fsm_sendFailure(FailureType_Failure_SyntaxError, "Word not found in a wordlist");
-				layoutHome();
-				return;
-			}
-		}
-		strlcpy(words[word_pos - 1], word, sizeof(words[word_pos - 1]));
-	}
-
-	if (word_index + 1 == 24) { // last one
-		uint32_t i;
-		strlcpy(storage.mnemonic, words[0], sizeof(storage.mnemonic));
-		for (i = 1; i < word_count; i++) {
-			strlcat(storage.mnemonic, " ", sizeof(storage.mnemonic));
-			strlcat(storage.mnemonic, words[i], sizeof(storage.mnemonic));
-		}
-		if (!enforce_wordlist || mnemonic_check(storage.mnemonic)) {
-			storage.has_mnemonic = true;
-			storage_commit();
-			fsm_sendSuccess("Device recovered");
+			
+		if (word_pos == 0) {
+			strlcpy(storage.mnemonic, word, sizeof(storage.mnemonic));
 		} else {
-			storage_reset();
-			fsm_sendFailure(FailureType_Failure_SyntaxError, "Invalid mnemonic, are words in correct order?");
+			strlcat(storage.mnemonic, " ", sizeof(storage.mnemonic));
+			strlcat(storage.mnemonic, word, sizeof(storage.mnemonic));
 		}
-		awaiting_word = false;
-		layoutHome();
-	} else {
-		word_index++;
-		next_word();
 	}
+	usbTiny(0);
+	storage.has_mnemonic = true;
+	storage_commit();
+	fsm_sendSuccess("Device recovered");
+	layoutHome();
 }
 
 void recovery_abort(void)
@@ -167,14 +271,4 @@ void recovery_abort(void)
 		layoutHome();
 		awaiting_word = false;
 	}
-}
-
-const char *recovery_get_fake_word(void)
-{
-	return fake_word;
-}
-
-uint32_t recovery_get_word_pos(void)
-{
-	return word_pos;
 }
