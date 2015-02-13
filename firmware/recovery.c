@@ -30,22 +30,47 @@
 #include "usb.h"
 #include "buttons.h"
 #include "util.h"
+#include "pinmatrix.h"
 
 #define MAXLETTER 4
-#define MAXCHOICES 10
+#define MAXCHOICES 16
 #define MAXDISPLAY 4
 
 static uint32_t askedletter[24*MAXLETTER/32];
 static unsigned int numletters;
-static unsigned int letter_pos;
+static int letter_pos;
 static uint32_t word_count;
 static bool awaiting_word = false;
 static bool enforce_wordlist;
 static char letters[24][MAXLETTER];
 
+static void draw_progress_bar(void) {
+	unsigned int progress = 
+		(word_count * MAXLETTER - numletters) * (OLED_WIDTH - 4)
+		/ (word_count * MAXLETTER);
+
+	// progress layout
+	oledFrame(0, OLED_HEIGHT - 8, OLED_WIDTH - 1, OLED_HEIGHT - 1);
+	oledBox(2, OLED_HEIGHT - 6, 1 + progress, OLED_HEIGHT - 3, 1);
+}
+
+static void fake_letter(void) {
+	const char* word = mnemonic_wordlist()[random_uniform(2048)];
+	char desc[] = "the letter #";
+
+	desc[11] = word[random_uniform(MAXLETTER)];
+
+	layoutDialog(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, desc[11] == 0 ? "an empty word" : desc, NULL, NULL, NULL);
+	letter_pos = -1;
+	draw_progress_bar();
+	oledRefresh();
+
+	WordRequest resp;
+	memset(&resp, 0, sizeof(WordRequest));
+	msg_write(MessageType_MessageType_WordRequest, &resp);
+}
+
 void next_word(void) {
-	char desc[] = "word ## letter #";
-	char pdesc[] = "progress ## %";
 	int rand = random_uniform(numletters);
 	letter_pos = 0;
 	while ((askedletter[letter_pos / 32] & (1<<(letter_pos & 31))) != 0)
@@ -56,18 +81,25 @@ void next_word(void) {
 			letter_pos++;
 		rand--;
 	}
-	unsigned int progress = (word_count * MAXLETTER - numletters)*100/
-		(word_count * MAXLETTER);
-	pdesc[9] = '0'+(progress/10);
-	pdesc[10] = '0'+(progress%10);
-	numletters--;
-	askedletter[letter_pos / 32] |= (1<<(letter_pos & 31));
 
 	int word_pos = (letter_pos / MAXLETTER) + 1;
-	desc[5] = word_pos < 10 ? ' ' : ('0' + word_pos / 10);
-	desc[6] = '0' + (word_pos % 10);
-	desc[15] = '1' + (letter_pos % MAXLETTER);
-	layoutDialogSwipe(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, desc, "of your mnemonic", NULL, pdesc);
+	layoutDialog(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, "word ", "of your mnemonic", NULL, NULL);
+	oledDrawString(74, 2 * 9, "letter");
+	if (word_pos >= 10) {
+		oledDrawBitmap(45, 10, bmp_digits[word_pos / 10]);
+		oledInvert(45, 10, 45+15, 10+15);
+	}
+	oledDrawBitmap(58, 10, bmp_digits[word_pos % 10]);
+	oledInvert(58, 10, 58+15, 10+15);
+	oledDrawBitmap(100, 10, bmp_digits[1 + (letter_pos % MAXLETTER)]);
+	oledInvert(100, 10, 100+15, 10+15);
+
+	draw_progress_bar();
+	oledRefresh();
+
+	askedletter[letter_pos / 32] |= (1<<(letter_pos & 31));
+	numletters--;
+	
 	WordRequest resp;
 	memset(&resp, 0, sizeof(WordRequest));
 	msg_write(MessageType_MessageType_WordRequest, &resp);
@@ -105,19 +137,19 @@ void recovery_init(uint32_t _word_count, bool passphrase_protection, bool pin_pr
 void layout_choices(const char**choices, unsigned int choice, 
 					unsigned int numchoices) {
 	unsigned int i;
-	oledBox(20, 1*9+3, OLED_WIDTH-1, (MAXDISPLAY+1)*9+3-1, false);
+	oledBox(20, 1*9+2, OLED_WIDTH-1, (MAXDISPLAY+1)*9+3-1, false);
 	if (numchoices <= MAXDISPLAY) {
 		for (i = 0; i < numchoices; i++) {
-			oledDrawString(20, (i+1)*9 + 3, choices[i]);
+			oledDrawString(25, (i+1)*9 + 3, choices[i]);
 			if (i == choice) {
-				oledInvert(20, (i+1)*9 + 3, OLED_WIDTH-1, (i+2)*9 + 3 -1);
+				oledInvert(20, (i+1)*9 + 2, OLED_WIDTH-1, (i+2)*9 + 3 -1);
 			}
 		}
 	} else {
 		for (i = 0; i < MAXDISPLAY; i++) {
-			oledDrawString(20, (i+1) * 9 + 3, choices[(choice+i) % numchoices]);
+			oledDrawString(25, (i+1) * 9 + 3, choices[(choice+i) % numchoices]);
 		}
-		oledInvert(20, 1*9+3, OLED_WIDTH-1, 2*9+3-1);
+		oledInvert(20, 1*9+2, OLED_WIDTH-1, 2*9+3-1);
 	}
 	oledRefresh();
 }
@@ -183,45 +215,59 @@ const char* choose_word(unsigned int word_pos,
 
 void recovery_word(const char *word)
 {
+	const char * const *wl;
+	int i;
+	unsigned int word_pos, numchoices;
 	if (!awaiting_word) {
 		fsm_sendFailure(FailureType_Failure_UnexpectedMessage, "Not in Recovery mode");
 		layoutHome();
 		return;
 	}
 
-	unsigned int word_pos = letter_pos / MAXLETTER;
-	letters[word_pos][letter_pos % MAXLETTER] = word[0];
-	
-	// check number of choices remaining
-	const char **wl = mnemonic_wordlist();
-	int numchoices = 0;
-	int i;
-	while (*wl) {
-		if (check_word(*wl, letters[word_pos])) {
-			numchoices++;
-			if (numchoices > MAXCHOICES) {
-				break;
+	// If we asked for a real letter, put it into the letters array.
+	// Ignore the word if we asked for a fake letter.
+	if (letter_pos >= 0) {
+		word_pos = letter_pos / MAXLETTER;
+		letters[word_pos][letter_pos % MAXLETTER] = word[0];
+
+		// check number of choices remaining
+		wl = mnemonic_wordlist();
+		numchoices = 0;
+		while (*wl) {
+			if (check_word(*wl, letters[word_pos])) {
+				numchoices++;
+				if (numchoices > MAXCHOICES) {
+					break;
+				}
+			}
+			wl++;
+		}
+		
+		if (numchoices == 0) {
+			storage_reset();
+			fsm_sendFailure(FailureType_Failure_SyntaxError, "Wrong letter");
+			layoutHome();
+			return;
+		}
+
+		if (numchoices <= MAXCHOICES) {
+			/* word is unique enough. Don't ask for it again */
+			unsigned int pos = word_pos * MAXLETTER;
+			for (i = 0; i < MAXLETTER; i++) {
+				if ((askedletter[pos / 32] & (1 << (pos & 31))) == 0) {
+					numletters--;
+					askedletter[pos / 32] |= (1 << (pos & 31));
+				}
+				pos++;
 			}
 		}
-		wl++;
-	}
 
-	if (numchoices == 0) {
-		storage_reset();
-		fsm_sendFailure(FailureType_Failure_SyntaxError, "Wrong letter");
-		layoutHome();
-		return;
-	}
-
-	if (numchoices <= MAXCHOICES) {
-		/* word is unique enough. Don't ask for it again */
-		unsigned int pos = word_pos * MAXLETTER;
-		for (i = 0; i < MAXLETTER; i++) {
-			if ((askedletter[pos / 32] & (1 << (pos & 31))) == 0) {
-				numletters--;
-				askedletter[pos / 32] |= (1 << (pos & 31));
-			}
-			pos++;
+		/* assuming we ask for about 2 letters per word, this will
+		 * introduce about 4 fake letters in total.
+		 */
+		if (random_uniform(word_count / 2) == 0) {
+			fake_letter();
+			return;
 		}
 	}
 	
