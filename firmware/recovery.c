@@ -56,11 +56,11 @@ static void draw_progress_bar(void) {
 
 static void fake_letter(void) {
 	const char* word = mnemonic_wordlist()[random_uniform(2048)];
-	char desc[] = "the letter #";
+	char letter = word[random_uniform(MAXLETTER)];
 
-	desc[11] = word[random_uniform(MAXLETTER)];
-
-	layoutDialog(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, desc[11] == 0 ? "an empty word" : desc, NULL, NULL, NULL);
+	layoutDialog(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, letter ? "the letter " : "an empty word", NULL, NULL, NULL);
+	if (letter)
+		oledDrawZoomedChar(20 + oledStringWidth("the letter "), 10, 2, letter);
 	letter_pos = -1;
 	draw_progress_bar();
 	oledRefresh();
@@ -84,15 +84,15 @@ void next_word(void) {
 
 	int word_pos = (letter_pos / MAXLETTER) + 1;
 	layoutDialog(DIALOG_ICON_INFO, NULL, NULL, NULL, "Please enter", NULL, "word ", "of your mnemonic", NULL, NULL);
-	oledDrawString(74, 2 * 9, "letter");
+	oledDrawString(76, 2 * 9, "letter");
 	if (word_pos >= 10) {
 		oledDrawBitmap(45, 10, bmp_digits[word_pos / 10]);
 		oledInvert(45, 10, 45+15, 10+15);
 	}
 	oledDrawBitmap(58, 10, bmp_digits[word_pos % 10]);
 	oledInvert(58, 10, 58+15, 10+15);
-	oledDrawBitmap(100, 10, bmp_digits[1 + (letter_pos % MAXLETTER)]);
-	oledInvert(100, 10, 100+15, 10+15);
+	oledDrawBitmap(104, 10, bmp_digits[1 + (letter_pos % MAXLETTER)]);
+	oledInvert(104, 10, 104+15, 10+15);
 
 	draw_progress_bar();
 	oledRefresh();
