@@ -20,7 +20,10 @@
 #ifndef __SETUP_H__
 #define __SETUP_H__
 
+#ifdef APPVER
+#define setup() do{}while(0)
+#else
 void setup(void);
-void setupApp(void);
+#endif
 
 #endif

@@ -35,7 +35,6 @@ CFLAGS   += $(OPTFLAGS) \
             -fvisibility=internal \
             -ffunction-sections \
             -fdata-sections \
-            -fstack-protector-all \
             -mcpu=cortex-m3 \
             -mthumb \
             -msoft-float \
