@@ -44,7 +44,12 @@ void data2hex(const void *data, uint32_t len, char *str)
 		str[i * 2    ] = hexdigits[(cdata[i] >> 4) & 0xF];
 		str[i * 2 + 1] = hexdigits[cdata[i] & 0xF];
 	}
-	str[len * 2] = 0;
+	str[(len + 1) * 2] = 0;
+}
+
+void system_halt(void)
+{
+	for (;;) { delay(50000); } // loop forever
 }
 
 uint32_t readprotobufint(uint8_t **ptr)
@@ -68,14 +73,4 @@ uint32_t readprotobufint(uint8_t **ptr)
 	}
 	(*ptr)++;
 	return result;
-}
-
-void __attribute__((noreturn)) system_halt(void)
-{
-	for (;;) {} // loop forever
-}
-
-void __attribute__((noreturn)) system_reset(void)
-{
-	scb_reset_system();
 }

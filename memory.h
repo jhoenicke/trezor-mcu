@@ -99,6 +99,5 @@
 #define FLASH_CODE_SECTOR_LAST	7
 
 void memory_protect(void);
-int memory_bootloader_hash(uint8_t *hash);
 
 #endif

@@ -36,11 +36,15 @@
 
 void fill_serialno_fixed(char *s)
 {
-	uint8_t uuid[32];
+	static uint8_t uuid[32];
 	memcpy(uuid, (uint8_t *)UNIQUE_SERIAL_ADDR, 12);
 	memcpy(uuid + 12, (uint8_t *)UNIQUE_SERIAL_ADDR, 12);
 	memcpy(uuid + 24, (uint8_t *)UNIQUE_SERIAL_ADDR, 8);
 	sha256_Raw(uuid, 32, uuid);
 	sha256_Raw(uuid, 32, uuid);
-	data2hex(uuid, 12, s);
+	
+	uint32hex((uuid[0] << 24)+ (uuid[1] << 16) + (uuid[2] << 8) + uuid[3], s+0);
+	uint32hex((uuid[4] << 24)+ (uuid[5] << 16) + (uuid[6] << 8) + uuid[7], s+8);
+	uint32hex((uuid[8] << 24)+ (uuid[9] << 16) + (uuid[10] << 8) + uuid[11], s+16);
+	s[24] = 0;
 }

@@ -36,10 +36,3 @@ void memory_protect(void)
 	flash_program_option_bytes( 0xFFFC0000 + 0xCCFF);
 	flash_lock_option_bytes();
 }
-
-int memory_bootloader_hash(uint8_t *hash)
-{
-	sha256_Raw((const uint8_t *)FLASH_BOOT_START, FLASH_BOOT_LEN, hash);
-	sha256_Raw(hash, 32, hash);
-	return 32;
-}

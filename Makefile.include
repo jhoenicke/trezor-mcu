@@ -32,7 +32,6 @@ CFLAGS   += $(OPTFLAGS) \
             -Werror \
             -fno-common \
             -fno-exceptions \
-            -fvisibility=internal \
             -mcpu=cortex-m3 \
             -mthumb \
             -msoft-float \

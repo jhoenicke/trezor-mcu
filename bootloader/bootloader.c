@@ -39,10 +39,10 @@
 
 void show_unofficial_warning(void)
 {
-	layoutDialog(DIALOG_ICON_WARNING, "Abort", "I'll take the risk", NULL, "WARNING!", NULL, "Unofficial firmware", "detected.", NULL, NULL);
+	layoutDialog(DIALOG_ICON_WARNING, "Abort", "I take the risk", NULL, "WARNING!", NULL, "Unofficial firmware", NULL, NULL, NULL);
 
 	do {
-		delay(100000);
+		delay(50000);
 		buttonUpdate();
 	} while (!button.YesUp && !button.NoUp);
 
@@ -50,7 +50,7 @@ void show_unofficial_warning(void)
 		return; // yes button was pressed -> return
 	}
 
-	layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Unofficial firmware", "aborted.", NULL, "Unplug your TREZOR", "and see our support", "page at mytrezor.com");
+	layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Unofficial firmware", "aborted.", NULL, "Unplug TREZOR and go", "to support page of", "mytrezor.com");
 	system_halt();
 }
 
@@ -97,7 +97,7 @@ void check_firmware_sanity(void)
 		broken++;
 	}
 	if (broken) {
-		layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Firmware appears", "to be broken.", NULL, "Unplug your TREZOR", "and see our support", "page at mytrezor.com");
+		layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Firmware seems", "broken.", NULL, "Please try to", "reflash the device.", NULL);
 		system_halt();
 	}
 }

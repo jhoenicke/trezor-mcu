@@ -1,6 +1,6 @@
 Compile with 
-https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q2-update/+download/gcc-arm-none-eabi-4_8-2014q2-20140609-linux.tar.bz2
+https://launchpad.net/gcc-arm-embedded/4.8/4.8-2013-q4-major/+download/gcc-arm-none-eabi-4_8-2013q4-20131204-linux.tar.bz2
 
 libopencm3:
-git checkout 806ebb18faf3285bb4dfa3c9c2caeac77dca7f34
+git checkout 0f29fc8b1be14db4908ee1d377c5e571d0ca6235
 

@@ -27,8 +27,6 @@ void layoutDialog(LayoutDialogIcon icon, const char *btnNo, const char *btnYes, 
 	int left = 0;
 	oledClear();
 	switch (icon) {
-		case DIALOG_NOICON:
-			break;
 		case DIALOG_ICON_ERROR:
 			oledDrawBitmap(0, 0, &bmp_icon_error);
 			left = 20;
@@ -48,6 +46,8 @@ void layoutDialog(LayoutDialogIcon icon, const char *btnNo, const char *btnYes, 
 		case DIALOG_ICON_OK:
 			oledDrawBitmap(0, 0, &bmp_icon_ok);
 			left = 20;
+			break;
+		case DIALOG_NOICON:
 			break;
 	}
 	if (line1) oledDrawString(left, 0 * 9, line1);
@@ -79,11 +79,8 @@ void layoutDialog(LayoutDialogIcon icon, const char *btnNo, const char *btnYes, 
 	oledRefresh();
 }
 
-void layoutProgress(const char *desc, int permil, int gearstep)
+void layoutProgressBar(int permil, const char *desc)
 {
-	const BITMAP *bmp_gears[4] = { &bmp_gears0, &bmp_gears1, &bmp_gears2, &bmp_gears3 };
-	oledClear();
-	oledDrawBitmap(40, 0, bmp_gears[gearstep % 4]);
 	// progressbar
 	oledFrame(0, OLED_HEIGHT - 8, OLED_WIDTH - 1, OLED_HEIGHT - 1);
 	oledBox(1, OLED_HEIGHT - 7, OLED_WIDTH - 2, OLED_HEIGHT - 2, 0);
@@ -102,4 +99,24 @@ void layoutProgress(const char *desc, int permil, int gearstep)
 		oledDrawStringCenter(OLED_HEIGHT - 16, desc);
 	}
 	oledRefresh();
+}
+
+void layoutProgress(const char *desc, int permil, int gearstep)
+{
+	oledClear();
+	switch (gearstep % 4) {
+	case 0:
+		oledDrawBitmap(40, 0, &bmp_gears0);
+		break;
+	case 1:
+		oledDrawBitmap(40, 0, &bmp_gears1);
+		break;
+	case 2:
+		oledDrawBitmap(40, 0, &bmp_gears2);
+		break;
+	case 3:
+		oledDrawBitmap(40, 0, &bmp_gears3);
+		break;
+	}
+	layoutProgressBar(permil, desc);
 }

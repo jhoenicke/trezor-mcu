@@ -208,7 +208,6 @@ enum {
 	STATE_OPEN,
 	STATE_FLASHSTART,
 	STATE_FLASHING,
-	STATE_CHECK,
 	STATE_END,
 };
 
@@ -261,19 +260,6 @@ static void send_msg_features(usbd_device *dev)
 		, 64) != 64) {}
 }
 
-static void send_msg_buttonrequest_firmwarecheck(usbd_device *dev)
-{
-	// send response: ButtonRequest message (id 26), payload len 2
-		// code = ButtonRequest_FirmwareCheck (9)
-	while ( usbd_ep_write_packet(dev, 0x81,
-		"?##"				// header
-		"\x00\x1a"			// msg_id
-		"\x00\x00\x00\x02"	// payload_len
-		"\x08\x09"			// data
-		"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-		, 64) != 64) {}
-}
-
 static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 {
 	(void)ep;
@@ -283,7 +269,6 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 	static int wi;
 	int i;
 	uint32_t *w;
-	static SHA256_CTX ctx;
 
 	if ( usbd_ep_read_packet(dev, 0x02, buf, 64) != 64) return;
 
@@ -291,7 +276,7 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 		return;
 	}
 
-	if (flash_state == STATE_READY || flash_state == STATE_OPEN || flash_state == STATE_FLASHSTART || flash_state == STATE_CHECK) {
+	if (flash_state == STATE_READY || flash_state == STATE_OPEN || flash_state == STATE_FLASHSTART) {
 		if (buf[0] != '?' || buf[1] != '#' || buf[2] != '#') {	// invalid start - discard
 			return;
 		}
@@ -314,13 +299,15 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 
 	if (flash_state == STATE_OPEN) {
 		if (msg_id == 0x0006) {		// FirmwareErase message (id 6)
-			layoutDialog(DIALOG_ICON_QUESTION, "Abort", "Continue", NULL, "Install new", "firmware?", NULL, "Never do this without", "your recovery card!", NULL);
+			layoutDialog(DIALOG_ICON_QUESTION, "Abort", "Continue", NULL, "Upload new", "firmware?", NULL, "Never do this without", "the paper backup!", NULL);
 			do {
-				delay(100000);
+				delay(50000);
 				buttonUpdate();
 			} while (!button.YesUp && !button.NoUp);
 			if (button.YesUp) {
-				layoutProgress("INSTALLING ... Please wait", 0, 0);
+				oledClear();
+				oledDrawBitmap(40, 0, &bmp_gears0);
+				layoutProgressBar(0, "UPLOADING ... Please wait");
 				// backup metadata
 				memcpy(meta_backup, (void *)FLASH_META_START, FLASH_META_LEN);
 				flash_unlock();
@@ -339,18 +326,17 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 			}
 			send_msg_failure(dev);
 			flash_state = STATE_END;
-			layoutDialog(DIALOG_ICON_WARNING, NULL, NULL, NULL, "Firmware installation", "aborted.", NULL, "You may now", "unplug your TREZOR.", NULL);
+			layoutDialog(DIALOG_ICON_WARNING, NULL, NULL, NULL, "Upload of firmware", "was aborted.", NULL, "You may now", "unplug TREZOR.", NULL);
 			return;
 		}
 		return;
 	}
-
 	if (flash_state == STATE_FLASHSTART) {
 		if (msg_id == 0x0007) {		// FirmwareUpload message (id 7)
 			if (buf[9] != 0x0a) { // invalid contents
 				send_msg_failure(dev);
 				flash_state = STATE_END;
-				layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Error installing ", "firmware.", NULL, "Unplug your TREZOR", "and try again.", NULL);
+				layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Error uploading", "firmware.", NULL, "Unplug TREZOR", "and try again.", NULL);
 				return;
 			}
 			// read payload length
@@ -359,10 +345,9 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 			if (flash_len > FLASH_TOTAL_SIZE + FLASH_META_DESC_LEN - (FLASH_APP_START - FLASH_ORIGIN)) { // firmware is too big
 				send_msg_failure(dev);
 				flash_state = STATE_END;
-				layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Firmware is too big.", NULL, "Get official firmware", "from mytrezor.com", NULL, NULL);
+				layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Firmware is too big.", NULL,  "Unplug TREZOR", "and try again.", NULL, NULL);
 				return;
 			}
-			sha256_Init(&ctx);
 			flash_state = STATE_FLASHING;
 			flash_pos = 0;
 			wi = 0;
@@ -388,12 +373,10 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 		if (buf[0] != '?') {	// invalid contents
 			send_msg_failure(dev);
 			flash_state = STATE_END;
-			layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Error installing ", "firmware.", NULL, "Unplug your TREZOR", "and try again.", NULL);
+			layoutDialog(DIALOG_ICON_ERROR, NULL, NULL, NULL, "Error uploading", "firmware.", NULL, "Unplug TREZOR", "and try again.", NULL);
 			return;
 		}
 		p = buf + 1;
-		layoutProgress("INSTALLING ... Please wait", 1000 * flash_pos / flash_len, flash_anim / 8);
-		flash_anim++;
 		flash_unlock();
 		while (p < buf + 64 && flash_pos < flash_len) {
 			towrite[wi] = *p;
@@ -404,7 +387,6 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 					flash_program_word(FLASH_META_START + flash_pos, *w);			// the first 256 bytes of firmware is metadata descriptor
 				} else {
 					flash_program_word(FLASH_APP_START + (flash_pos - FLASH_META_DESC_LEN), *w);	// the rest is code
-					sha256_Update(&ctx, towrite, 4);
 				}
 				flash_pos += 4;
 				wi = 0;
@@ -412,78 +394,35 @@ static void hid_rx_callback(usbd_device *dev, uint8_t ep)
 			p++;
 		}
 		flash_lock();
+
 		// flashing done
 		if (flash_pos == flash_len) {
-			flash_state = STATE_CHECK;
-			send_msg_buttonrequest_firmwarecheck(dev);
-		}
-		return;
-	}
-
-	if (flash_state == STATE_CHECK) {
-		if (msg_id != 0x001B) {	// ButtonAck message (id 27)
-			return;
-		}
-		char digest[64];
-		sha256_End(&ctx, digest);
-		char str[4][17];
-		strlcpy(str[0], digest, 17);
-		strlcpy(str[1], digest + 16, 17);
-		strlcpy(str[2], digest + 32, 17);
-		strlcpy(str[3], digest + 48, 17);
-		layoutDialog(DIALOG_ICON_QUESTION, "Abort", "Continue", "Compare fingerprints", str[0], str[1], str[2], str[3], NULL, NULL);
-
-		do {
-			delay(100000);
-			buttonUpdate();
-		} while (!button.YesUp && !button.NoUp);
-
-		bool hash_check_ok = button.YesUp;
-
-		layoutProgress("INSTALLING ... Please wait", 1000, 0);
-		uint8_t flags = *((uint8_t *)FLASH_META_FLAGS);
-		// check if to restore old storage area but only if signatures are ok
-		if ((flags & 0x01) && signatures_ok()) {
-			// copy new stuff
-			memcpy(meta_backup, (void *)FLASH_META_START, FLASH_META_DESC_LEN);
-			// replace "TRZR" in header with 0000 when hash not confirmed
-			if (!hash_check_ok) {
-				meta_backup[0] = 0;
-				meta_backup[1] = 0;
-				meta_backup[2] = 0;
-				meta_backup[3] = 0;
-			}
-			flash_unlock();
-			// erase storage
-			for (i = FLASH_META_SECTOR_FIRST; i <= FLASH_META_SECTOR_LAST; i++) {
-				flash_erase_sector(i, FLASH_CR_PROGRAM_X32);
-			}
-			// copy it back
-			for (i = 0; i < FLASH_META_LEN / 4; i++) {
-				w = (uint32_t *)(meta_backup + i * 4);
-				flash_program_word(FLASH_META_START + i * 4, *w);
-			}
-			flash_lock();
-		} else {
-			// replace "TRZR" in header with 0000 when hash not confirmed
-			if (!hash_check_ok) {
-				// no need to erase, because we are just erasing bits
+			uint8_t flags = *((uint8_t *)FLASH_META_FLAGS);
+			// check if to restore old storage area but only if signatures are ok
+			if ((flags & 0x01) && signatures_ok()) {
+				// copy new stuff
+				memcpy(meta_backup, (void *)FLASH_META_START, FLASH_META_DESC_LEN);
 				flash_unlock();
-				flash_program_word(FLASH_META_START, 0x00000000);
+				// erase storage
+				for (i = FLASH_META_SECTOR_FIRST; i <= FLASH_META_SECTOR_LAST; i++) {
+					flash_erase_sector(i, FLASH_CR_PROGRAM_X32);
+				}
+				// copy it back
+				for (i = 0; i < FLASH_META_LEN / 4; i++) {
+					w = (uint32_t *)(meta_backup + i * 4);
+					flash_program_word(FLASH_META_START + i * 4, *w);
+				}
 				flash_lock();
 			}
-		}
-		flash_state = STATE_END;
-		if (hash_check_ok) {
-			layoutDialog(DIALOG_ICON_OK, NULL, NULL, NULL, "New firmware", "successfully installed.", NULL, "You may now", "unplug your TREZOR.", NULL);
 			send_msg_success(dev);
-		} else {
-			layoutDialog(DIALOG_ICON_WARNING, NULL, NULL, NULL, "Firmware installation", "aborted.", NULL, "You need to repeat", "the procedure with", "the correct firmware.");
-			send_msg_failure(dev);
+			flash_state = STATE_END;
+			layoutDialog(DIALOG_ICON_OK, NULL, NULL, NULL, "New firmware", "successfully uploaded.", NULL, "You may now", "unplug TREZOR.", NULL);
+			return;
 		}
+		layoutProgress("UPLOADING ... Please wait", 1000 * flash_pos / flash_len, flash_anim / 6);
+		flash_anim++;
 		return;
 	}
-
 }
 
 static void hid_set_config(usbd_device *dev, uint16_t wValue)

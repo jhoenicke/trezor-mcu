@@ -148,15 +148,6 @@ void oledRefresh()
 	SPISend(SPI_BASE, _oledbuffer, sizeof(_oledbuffer));
 	gpio_set(OLED_CS_PORT, OLED_CS_PIN);		// SPI deselect
 	gpio_clear(OLED_DC_PORT, OLED_DC_PIN);		// set to CMD
-
-	// return it back
-	if (is_debug_mode) {
-		OLED_BUFTGL(OLED_WIDTH - 5, 0); OLED_BUFTGL(OLED_WIDTH - 4, 0); OLED_BUFTGL(OLED_WIDTH - 3, 0); OLED_BUFTGL(OLED_WIDTH - 2, 0); OLED_BUFTGL(OLED_WIDTH - 1, 0);
-		OLED_BUFTGL(OLED_WIDTH - 4, 1); OLED_BUFTGL(OLED_WIDTH - 3, 1); OLED_BUFTGL(OLED_WIDTH - 2, 1); OLED_BUFTGL(OLED_WIDTH - 1, 1); 
-		OLED_BUFTGL(OLED_WIDTH - 3, 2); OLED_BUFTGL(OLED_WIDTH - 2, 2); OLED_BUFTGL(OLED_WIDTH - 1, 2);
-		OLED_BUFTGL(OLED_WIDTH - 2, 3); OLED_BUFTGL(OLED_WIDTH - 1, 3);
-		OLED_BUFTGL(OLED_WIDTH - 1, 4);
-	}
 }
 
 const uint8_t *oledGetBuffer()
