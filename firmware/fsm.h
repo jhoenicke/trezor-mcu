@@ -56,6 +56,7 @@ void fsm_msgDecryptMessage(DecryptMessage *msg);
 void fsm_msgEstimateTxSize(EstimateTxSize *msg);
 void fsm_msgRecoveryDevice(RecoveryDevice *msg);
 void fsm_msgWordAck(WordAck *msg);
+void fsm_msgBenchmark(Benchmark *msg);
 
 // debug message functions
 #if DEBUG_LINK

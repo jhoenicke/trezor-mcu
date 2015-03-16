@@ -112,3 +112,6 @@ DebugLinkState.recovery_fake_word	max_size:12
 
 DebugLinkLog.bucket			max_size:33
 DebugLinkLog.text			max_size:256
+
+Benchmark.data1				max_size:32
+Benchmark.data2				max_size:32

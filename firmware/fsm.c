@@ -44,6 +44,7 @@
 #include "base58.h"
 #include "bip39.h"
 #include "ripemd160.h"
+#include "bignum.h"
 
 // message methods
 
@@ -812,6 +813,47 @@ void fsm_msgRecoveryDevice(RecoveryDevice *msg)
 void fsm_msgWordAck(WordAck *msg)
 {
 	recovery_word(msg->word);
+}
+
+void fsm_msgBenchmark(Benchmark *msg)
+{
+	bignum256 a;
+	bignum256 b;
+	curve_point res;
+	void (*f) (const bignum256 *a, curve_point *res);
+	uint32_t i;
+
+	if (msg->has_data1)
+		bn_read_be(msg->data1.bytes, &a);
+	if (msg->has_data2)
+		bn_read_be(msg->data2.bytes, &b);
+	switch(msg->function) {
+	/* case 0: */
+	/* 	f = &bn_inverse_johoe; */
+	/* 	break; */
+	/* case 1: */
+	/* 	f = &bn_inverse; */
+	/* 	break; */
+	/* case 2: */
+	/* 	f = &bn_inverse_slow; */
+	/* 	break; */
+	case 3:
+		f = &scalar_multiply;
+		break;
+	case 4:
+		f = &scalar_multiply_johoe1;
+		break;
+	case 5:
+		f = &scalar_multiply_johoe2;
+		break;
+	default:
+		fsm_sendFailure(FailureType_Failure_Other, "no such function.");
+		return;
+	}
+	for (i = 0; i < msg->repetitions; i++) {
+		f(&a, &res);
+	}
+	fsm_sendSuccess("Done.");
 }
 
 #if DEBUG_LINK

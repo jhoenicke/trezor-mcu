@@ -64,7 +64,8 @@ typedef enum _MessageType {
     MessageType_MessageType_DebugLinkGetState = 101,
     MessageType_MessageType_DebugLinkState = 102,
     MessageType_MessageType_DebugLinkStop = 103,
-    MessageType_MessageType_DebugLinkLog = 104
+    MessageType_MessageType_DebugLinkLog = 104,
+    MessageType_MessageType_Benchmark = 99
 } MessageType;
 
 /* Struct definitions */
@@ -131,6 +132,25 @@ typedef struct _ApplySettings {
     bool has_homescreen;
     ApplySettings_homescreen_t homescreen;
 } ApplySettings;
+
+typedef struct {
+    size_t size;
+    uint8_t bytes[32];
+} Benchmark_data1_t;
+
+typedef struct {
+    size_t size;
+    uint8_t bytes[32];
+} Benchmark_data2_t;
+
+typedef struct _Benchmark {
+    uint32_t function;
+    uint32_t repetitions;
+    bool has_data1;
+    Benchmark_data1_t data1;
+    bool has_data2;
+    Benchmark_data2_t data2;
+} Benchmark;
 
 typedef struct _ButtonRequest {
     bool has_code;
@@ -676,6 +696,7 @@ extern const char SimpleSignTx_coin_name_default[17];
 #define DebugLinkState_init_default              {false, {0, {0}}, false, "", false, "", false, "", false, HDNodeType_init_default, false, 0, false, "", false, {0, {0}}, false, "", false, 0}
 #define DebugLinkStop_init_default               {0}
 #define DebugLinkLog_init_default                {false, 0, false, "", false, ""}
+#define Benchmark_init_default                   {0, 0, false, {0, {0}}, false, {0, {0}}}
 #define Initialize_init_zero                     {0}
 #define Features_init_zero                       {false, "", false, 0, false, 0, false, 0, false, 0, false, "", false, 0, false, 0, false, "", false, "", 0, {CoinType_init_zero, CoinType_init_zero, CoinType_init_zero, CoinType_init_zero, CoinType_init_zero, CoinType_init_zero}, false, 0, false, {0, {0}}, false, {0, {0}}, false, 0}
 #define ClearSession_init_zero                   {0}
@@ -729,6 +750,7 @@ extern const char SimpleSignTx_coin_name_default[17];
 #define DebugLinkState_init_zero                 {false, {0, {0}}, false, "", false, "", false, "", false, HDNodeType_init_zero, false, 0, false, "", false, {0, {0}}, false, "", false, 0}
 #define DebugLinkStop_init_zero                  {0}
 #define DebugLinkLog_init_zero                   {false, 0, false, "", false, ""}
+#define Benchmark_init_zero                      {0, 0, false, {0, {0}}, false, {0, {0}}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Address_address_tag                      1
@@ -736,6 +758,10 @@ extern const char SimpleSignTx_coin_name_default[17];
 #define ApplySettings_label_tag                  2
 #define ApplySettings_use_passphrase_tag         3
 #define ApplySettings_homescreen_tag             4
+#define Benchmark_function_tag                   1
+#define Benchmark_repetitions_tag                2
+#define Benchmark_data1_tag                      3
+#define Benchmark_data2_tag                      4
 #define ButtonRequest_code_tag                   1
 #define ButtonRequest_data_tag                   2
 #define ChangePin_remove_tag                     1
@@ -914,6 +940,7 @@ extern const pb_field_t DebugLinkGetState_fields[1];
 extern const pb_field_t DebugLinkState_fields[11];
 extern const pb_field_t DebugLinkStop_fields[1];
 extern const pb_field_t DebugLinkLog_fields[4];
+extern const pb_field_t Benchmark_fields[5];
 
 /* Maximum encoded size of messages (where known) */
 #define Initialize_size                          0
@@ -969,6 +996,7 @@ extern const pb_field_t DebugLinkLog_fields[4];
 #define DebugLinkState_size                      (1468 + HDNodeType_size)
 #define DebugLinkStop_size                       0
 #define DebugLinkLog_size                        300
+#define Benchmark_size                           80
 
 #ifdef __cplusplus
 } /* extern "C" */
