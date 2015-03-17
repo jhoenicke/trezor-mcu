@@ -840,12 +840,14 @@ void fsm_msgBenchmark(Benchmark *msg)
 	case 3:
 		f = &scalar_multiply;
 		break;
+/*
 	case 4:
 		f = &scalar_multiply_johoe1;
 		break;
 	case 5:
 		f = &scalar_multiply_johoe2;
 		break;
+*/
 	default:
 		fsm_sendFailure(FailureType_Failure_Other, "no such function.");
 		return;
