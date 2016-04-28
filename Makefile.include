@@ -14,6 +14,7 @@ DBGFLAGS ?= -g -DNDEBUG
 
 CFLAGS   += $(OPTFLAGS) \
             $(DBGFLAGS) \
+            -std=c99 \
             -W \
             -Wall \
             -Wextra \
@@ -53,7 +54,7 @@ ifdef APPVER
 CFLAGS   += -DAPPVER=$(APPVER)
 LDSCRIPT  = $(TOP_DIR)/memory_app_$(APPVER).ld
 else
-LDSCRIPT  = $(TOP_DIR)/memory.ld
+LDSCRIPT  = $(TOP_DIR)/memory_fb.ld
 endif
 
 LDFLAGS  += --static \

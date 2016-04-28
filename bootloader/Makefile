@@ -1,5 +1,6 @@
 NAME  = bootloader
 
+OPTFLAGS = -Os
 OBJS += bootloader.o
 OBJS += signatures.o
 OBJS += usb.o

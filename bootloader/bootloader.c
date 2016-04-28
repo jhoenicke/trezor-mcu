@@ -85,7 +85,7 @@ void load_app(void)
 {
 	// jump to app
 	SCB_VTOR = FLASH_APP_START; // & 0xFFFF;
-	asm volatile("msr msp, %0"::"g" (*(volatile uint32_t *)FLASH_APP_START));
+	__asm__ volatile("msr msp, %0"::"g" (*(volatile uint32_t *)FLASH_APP_START));
 	(*(void (**)())(FLASH_APP_START + 4))();
 }
 
@@ -144,6 +144,7 @@ int main(void)
 	memory_protect();
 	oledInit();
 
+#if 0
 	// at least one button is unpressed
 	uint16_t state = gpio_port_read(BTN_PORT);
 	if ((state & BTN_PIN_YES) == BTN_PIN_YES || (state & BTN_PIN_NO) == BTN_PIN_NO) {
@@ -162,6 +163,7 @@ int main(void)
 		load_app();
 
 	}
+#endif
 
 	bootloader_loop();
 

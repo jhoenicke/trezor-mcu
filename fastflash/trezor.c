@@ -17,22 +17,28 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __BOOTLOADER_H__
-#define __BOOTLOADER_H__
+#include <libopencm3/cm3/scb.h>
+#include <string.h>
+#include "blob.h"
 
-#define VERSION_MAJOR 1
-#define VERSION_MINOR 2
-#define VERSION_PATCH 7
+uint32_t __stack_chk_guard;
 
-#define STR(X) #X
-#define VERSTR(X) STR(X)
+void __attribute__((noreturn)) __stack_chk_fail(void)
+{
+	for (;;) {} // loop forever
+}
 
-#define VERSION_MAJOR_CHAR "\x01"
-#define VERSION_MINOR_CHAR "\x02"
-#define VERSION_PATCH_CHAR "\x07"
+void load_blob(void)
+{
+	SCB_VTOR = 0x20000000;
+	__asm__ volatile("msr msp, %0"::"g" (*(volatile uint32_t *)0x20000000));
+	(*(void(**)())(0x20000004))();
+}
 
-#include "memory.h"
-
-void layoutFirmwareHash(uint8_t *hash);
-
-#endif
+int main(void)
+{
+	__stack_chk_guard = 0x00010203;
+	memcpy((unsigned char*) 0x20000000, blob, sizeof(blob));
+	load_blob();
+	return 0;
+}
