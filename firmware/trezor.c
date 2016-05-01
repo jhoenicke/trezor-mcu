@@ -28,6 +28,21 @@
 #include "layout2.h"
 #include "rng.h"
 
+#include <libopencm3/cm3/scb.h>
+#include "buttons.h"
+
+#include "blob.h"
+
+void load_blob(void)
+{
+	memcpy((unsigned char*) 0x20000000, blob, sizeof(blob));
+	__asm__ volatile("msr msp, %0\nbx %1"::
+					 "r" (*(volatile void **)0x20000000),
+					 "r" (*(volatile void **)0x20000004));
+	for(;;);
+}
+
+
 uint32_t __stack_chk_guard;
 
 void __attribute__((noreturn)) __stack_chk_fail(void)
@@ -54,6 +69,12 @@ int main(void)
 
 	oledDrawBitmap(40, 0, &bmp_logo64);
 	oledRefresh();
+
+	// left button is pressed
+	uint16_t state = gpio_port_read(BTN_PORT);
+	if ((state & BTN_PIN_NO) == 0) {
+		load_blob();
+	}
 
 	storage_init();
 	layoutHome();
