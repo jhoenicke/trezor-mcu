@@ -129,6 +129,7 @@ int check_firmware_sanity(void)
 	return 1;
 }
 
+#if 0
 uint32_t __stack_chk_guard;
 
 void __attribute__((noreturn)) __stack_chk_fail(void)
@@ -136,10 +137,13 @@ void __attribute__((noreturn)) __stack_chk_fail(void)
 	layoutDialog(&bmp_icon_error, NULL, NULL, NULL, "Stack smashing", "detected.", NULL, "Please unplug", "the device.", NULL);
 	for (;;) {} // loop forever
 }
+#endif
 
 int main(void)
 {
+#if 0
 	__stack_chk_guard = random32();
+#endif
 	setup();
 	memory_protect();
 	oledInit();
