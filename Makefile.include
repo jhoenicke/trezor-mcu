@@ -74,6 +74,11 @@ LDFLAGS  += -L$(TOP_DIR) \
             $(CPUFLAGS) \
             $(FPUFLAGS)
 
+ifeq ($(FUZZER),1)
+CFLAGS   += -DFUZZER=1
+LDFLAGS  += -L$(TOP_DIR)fuzzer
+endif
+
 ifeq ($(EMULATOR),1)
 CFLAGS   += -DEMULATOR=1
 
@@ -82,8 +87,13 @@ CFLAGS   += -include stdio.h
 
 LDFLAGS  += -L$(TOP_DIR)emulator
 
+ifeq ($(FUZZER),1)
+LDLIBS   += -ltrezor -lfuzzer
+LIBDEPS  += $(TOP_DIR)/libtrezor.a $(TOP_DIR)fuzzer/libfuzzer.a
+else
 LDLIBS   += -ltrezor -lemulator
 LIBDEPS  += $(TOP_DIR)/libtrezor.a $(TOP_DIR)emulator/libemulator.a
+endif
 
 ifeq ($(HEADLESS),1)
 CFLAGS   += -DHEADLESS=1

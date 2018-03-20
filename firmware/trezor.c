@@ -84,7 +84,11 @@ void check_lock_screen(void)
 	}
 }
 
+#if !FUZZER
 int main(void)
+#else
+int trezor_main(void)
+#endif
 {
 #ifndef APPVER
 	setup();
@@ -117,6 +121,11 @@ int main(void)
 	for (;;) {
 		usbPoll();
 		check_lock_screen();
+#if FUZZER
+		extern int fuzzer_checkend(void);
+		if (fuzzer_checkend())
+			return 0;
+#endif
 	}
 
 	return 0;

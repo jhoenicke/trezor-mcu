@@ -3,11 +3,20 @@
 # script/cibuild: Setup environment for CI to run tests. This is primarily
 #                 designed to run on the continuous integration server.
 
+find -name \*.o -o -name \*.a | xargs rm
+
 set -e
 
 cd "$(dirname "$0")/.."
 
-if [ "$EMULATOR" = 1 ]; then
+if [ "$FUZZER" = 1 ]; then
+    export EMULATOR=1
+    export HEADLESS=1
+    export CC=clang-7
+    export CFLAGS="-fsanitize=fuzzer,address,undefined"
+    export LDFLAGS="-v -fsanitize=fuzzer,address,undefined -fuse-ld=gold"
+    make -C fuzzer
+elif [ "$EMULATOR" = 1 ]; then
     make -C emulator
 else
     make -C vendor/libopencm3 lib/stm32/f2
