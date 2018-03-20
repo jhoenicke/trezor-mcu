@@ -117,7 +117,7 @@ static char CONFIDENTIAL sessionPassphrase[51];
 void storage_show_error(void)
 {
 	layoutDialog(&bmp_icon_error, NULL, NULL, NULL, _("Storage failure"), _("detected."), NULL, _("Please unplug"), _("the device."), NULL);
-	shutdown();
+	for(;;);
 }
 
 void storage_check_flash_errors(uint32_t status)
