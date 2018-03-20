@@ -78,6 +78,9 @@ void emulatorRandom(void *buffer, size_t size) {
 void emulatorSocketInit(void) {
 }
 
+static uint8_t initialize_msg[64] = {
+ '?', '#', '#', 0, 0, 0,0,0,0, 
+};
 size_t emulatorSocketRead(void *buffer, size_t size) {
 	const uint8_t* input = fuzzer_input(1);
 	uint8_t avail = input ? *input : 0;
@@ -86,6 +89,9 @@ size_t emulatorSocketRead(void *buffer, size_t size) {
 		if (input) {
 			memcpy(buffer, input, size);
 			return size;
+		} else {
+			memcpy(buffer, initialize_msg, 64);
+			return 64;
 		}
 	}
 	return 0;
@@ -109,6 +115,9 @@ extern int trezor_main(void);
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 	fuzzer_ptr = data;
 	fuzzer_length = size;
+	if (size < 1024 + 65) {
+		return 0;
+	}
 	trezor_main();
 	return 0;
 }
