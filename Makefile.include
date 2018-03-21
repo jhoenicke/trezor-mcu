@@ -11,8 +11,8 @@ OBJDUMP  := objdump
 AR       := ar
 AS       := as
 
-OPTFLAGS ?= -O3
-DBGFLAGS ?= -g3 -ggdb3
+OPTFLAGS ?= -O1
+DBGFLAGS ?= -g3 -ggdb3 -fno-omit-frame-pointer
 CPUFLAGS ?=
 FPUFLAGS ?=
 else
@@ -77,6 +77,8 @@ LDFLAGS  += -L$(TOP_DIR) \
 ifeq ($(FUZZER),1)
 CFLAGS   += -DFUZZER=1
 LDFLAGS  += -L$(TOP_DIR)fuzzer
+else
+CFLAGS   += -DFUZZER=0
 endif
 
 ifeq ($(EMULATOR),1)

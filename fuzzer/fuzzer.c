@@ -56,12 +56,29 @@ const uint8_t *fuzzer_input(size_t len) {
 	return result;
 }
 
+extern char usbTiny(char set);
+extern char read_state;
+extern uint16_t read_msg_id;
+extern uint32_t read_msg_size;
+extern uint32_t read_msg_pos;
+enum {
+        READSTATE_IDLE,
+        READSTATE_READING,
+};
 void setup(void) {
-	const uint8_t *input = fuzzer_input(0x800);
+	const uint8_t *input = fuzzer_input(32);
 	memset(emulator_flash_base, -1, FLASH_TOTAL_SIZE);
+	memset(emulator_flash_base+0x8100, 0, 0x3f00);
 	if (input) {
-		memcpy(emulator_flash_base + 0x8100, input, 0x800);
+		memcpy(emulator_flash_base + 0x8100, input, 32);
+		//HACK: force NUL termination of strings in storage
+		emulator_flash_base[0x9000] = 0;
 	}
+	read_state = READSTATE_IDLE;
+	read_msg_id = 0xffff;
+	read_msg_size = 0;
+	read_msg_pos = 0;
+	usbTiny(0);
 }
 
 void emulatorRandom(void *buffer, size_t size) {
@@ -83,7 +100,7 @@ static uint8_t initialize_msg[64] = {
 };
 size_t emulatorSocketRead(void *buffer, size_t size) {
 	const uint8_t* input = fuzzer_input(1);
-	uint8_t avail = input ? *input : 0;
+	uint8_t avail = input ? *input : 1;
 	if (avail) {
 		input = fuzzer_input(size);
 		if (input) {
@@ -115,7 +132,7 @@ extern int trezor_main(void);
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 	fuzzer_ptr = data;
 	fuzzer_length = size;
-	if (size < 1024 + 65) {
+	if (size < 64) {
 		return 0;
 	}
 	trezor_main();

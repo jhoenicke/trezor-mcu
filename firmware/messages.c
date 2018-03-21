@@ -233,13 +233,13 @@ void msg_process(char type, uint16_t msg_id, const pb_field_t *fields, uint8_t *
 	}
 }
 
+	char read_state = READSTATE_IDLE;
+	uint16_t read_msg_id = 0xFFFF;
+	uint32_t read_msg_size = 0;
+	uint32_t read_msg_pos = 0;
 void msg_read_common(char type, const uint8_t *buf, int len)
 {
-	static char read_state = READSTATE_IDLE;
 	static CONFIDENTIAL uint8_t msg_in[MSG_IN_SIZE];
-	static uint16_t msg_id = 0xFFFF;
-	static uint32_t msg_size = 0;
-	static uint32_t msg_pos = 0;
 	static const pb_field_t *fields = 0;
 
 	if (len != 64) return;
@@ -248,15 +248,15 @@ void msg_read_common(char type, const uint8_t *buf, int len)
 		if (buf[0] != '?' || buf[1] != '#' || buf[2] != '#') {	// invalid start - discard
 			return;
 		}
-		msg_id = (buf[3] << 8) + buf[4];
-		msg_size = ((uint32_t) buf[5] << 24)+ (buf[6] << 16) + (buf[7] << 8) + buf[8];
+		read_msg_id = (buf[3] << 8) + buf[4];
+		read_msg_size = ((uint32_t) buf[5] << 24)+ (buf[6] << 16) + (buf[7] << 8) + buf[8];
 
-		fields = MessageFields(type, 'i', msg_id);
+		fields = MessageFields(type, 'i', read_msg_id);
 		if (!fields) { // unknown message
 			fsm_sendFailure(FailureType_Failure_UnexpectedMessage, _("Unknown message"));
 			return;
 		}
-		if (msg_size > MSG_IN_SIZE) { // message is too big :(
+		if (read_msg_size > MSG_IN_SIZE) { // message is too big :(
 			fsm_sendFailure(FailureType_Failure_DataError, _("Message too big"));
 			return;
 		}
@@ -264,20 +264,20 @@ void msg_read_common(char type, const uint8_t *buf, int len)
 		read_state = READSTATE_READING;
 
 		memcpy(msg_in, buf + 9, len - 9);
-		msg_pos = len - 9;
+		read_msg_pos = len - 9;
 	} else
 	if (read_state == READSTATE_READING) {
 		if (buf[0] != '?') {	// invalid contents
 			read_state = READSTATE_IDLE;
 			return;
 		}
-		memcpy(msg_in + msg_pos, buf + 1, len - 1);
-		msg_pos += len - 1;
+		memcpy(msg_in + read_msg_pos, buf + 1, len - 1);
+		read_msg_pos += len - 1;
 	}
 
-	if (msg_pos >= msg_size) {
-		msg_process(type, msg_id, fields, msg_in, msg_size);
-		msg_pos = 0;
+	if (read_msg_pos >= read_msg_size) {
+		msg_process(type, read_msg_id, fields, msg_in, read_msg_size);
+		read_msg_pos = 0;
 		read_state = READSTATE_IDLE;
 	}
 }

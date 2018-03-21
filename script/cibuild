@@ -3,7 +3,7 @@
 # script/cibuild: Setup environment for CI to run tests. This is primarily
 #                 designed to run on the continuous integration server.
 
-find -name \*.o -o -name \*.a | xargs rm
+#find -name \*.o -o -name \*.a | xargs rm
 
 set -e
 
@@ -14,7 +14,7 @@ if [ "$FUZZER" = 1 ]; then
     export HEADLESS=1
     export CC=clang-7
     export CFLAGS="-fsanitize=fuzzer,address,undefined"
-    export LDFLAGS="-v -fsanitize=fuzzer,address,undefined -fuse-ld=gold"
+    export LDFLAGS="-v -fsanitize=fuzzer,address,undefined"
     make -C fuzzer
 elif [ "$EMULATOR" = 1 ]; then
     make -C emulator
