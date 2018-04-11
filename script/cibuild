@@ -14,7 +14,7 @@ if [ "$FUZZER" = 1 ]; then
     export HEADLESS=1
     export CC=clang-7
     export CFLAGS="-fsanitize=fuzzer,address,undefined"
-    export LDFLAGS="-v -fsanitize=fuzzer,address,undefined"
+    export LDFLAGS="-fsanitize=fuzzer,address,undefined"
     make -C fuzzer
 elif [ "$EMULATOR" = 1 ]; then
     make -C emulator

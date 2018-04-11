@@ -65,6 +65,9 @@ enum {
         READSTATE_IDLE,
         READSTATE_READING,
 };
+extern void recovery_abort(void);
+extern void signing_abort(void);
+extern void ethereum_signing_abort(void);
 void setup(void) {
 	const uint8_t *input = fuzzer_input(32);
 	memset(emulator_flash_base, -1, FLASH_TOTAL_SIZE);
@@ -79,6 +82,9 @@ void setup(void) {
 	read_msg_size = 0;
 	read_msg_pos = 0;
 	usbTiny(0);
+        recovery_abort();
+        signing_abort();
+        ethereum_signing_abort();
 }
 
 void emulatorRandom(void *buffer, size_t size) {

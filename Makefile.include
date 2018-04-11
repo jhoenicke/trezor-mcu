@@ -11,7 +11,7 @@ OBJDUMP  := objdump
 AR       := ar
 AS       := as
 
-OPTFLAGS ?= -O1
+OPTFLAGS ?= -O0
 DBGFLAGS ?= -g3 -ggdb3 -fno-omit-frame-pointer
 CPUFLAGS ?=
 FPUFLAGS ?=
