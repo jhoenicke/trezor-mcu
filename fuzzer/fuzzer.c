@@ -104,10 +104,11 @@ void emulatorSocketInit(void) {
 static uint8_t initialize_msg[64] = {
  '?', '#', '#', 0, 0, 0,0,0,0, 
 };
-size_t emulatorSocketRead(void *buffer, size_t size) {
+size_t emulatorSocketRead(int *iface, void *buffer, size_t size) {
 	const uint8_t* input = fuzzer_input(1);
 	uint8_t avail = input ? *input : 1;
 	if (avail) {
+		*iface = 0;
 		input = fuzzer_input(size);
 		if (input) {
 			memcpy(buffer, input, size);
@@ -120,7 +121,8 @@ size_t emulatorSocketRead(void *buffer, size_t size) {
 	return 0;
 }
 
-size_t emulatorSocketWrite(const void *buffer, size_t size) {
+size_t emulatorSocketWrite(int iface, const void *buffer, size_t size) {
+	(void) iface;
 	(void) buffer;
 	return size;
 }
